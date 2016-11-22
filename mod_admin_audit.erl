@@ -11,6 +11,7 @@
 
 -export([
     observe_logon_submit/2,
+    observe_logon_ready_page/2,
 
     observe_rsc_insert/3,
     observe_rsc_update_done/2,
@@ -28,9 +29,12 @@
 %%
 
 observe_logon_submit(Event, Context) ->
-    ?DEBUG(Event),
+    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
     undefined.
 
+observe_logon_ready_page(Event, Context) ->
+    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
+    undefined.
 
 %%
 %% Resources
@@ -48,31 +52,37 @@ observe_rsc_delete(Event, Context) ->
     ?DEBUG(Event),
     undefined.
 
-
 %%
 %% Modules
 %%
 
 observe_module_activate(Event, Context) ->
-    ?DEBUG({Event, Context}),
+    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
     undefined.
 
 observe_module_deactivate(Event, Context) ->
-    ?DEBUG({Event, Context}),
+    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
     undefined.
 
-%% 
+%%
+%% Helpers
+%%
+
+%% Who is logged on.
 %%
 who(Context) ->
     z_acl:user(Context).
 
-%%
 %% console or ip address 
+%%
 from(Context) ->
-    todo.
-    
-    
-    
-        
+    case z_context:get_reqdata(Context) of
+        undefined -> console;
+        ReqData -> wrq:peer(ReqData)
+    end.
 
-
+%%
+%% Get the user-agent header
+%%
+with_what(Context) ->
+    z_context:get_req_header("user-agent", Context).
