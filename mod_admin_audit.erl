@@ -6,8 +6,12 @@
 -mod_title("Admin audit functionality").
 -mod_description("Support audit log of important actions.").
 -mod_prio(1).
+-mod_schema(1).
 -mod_depends([admin, menu]).
+-mod_provides([audit]).
 
+
+-export([manage_schema/2]).
 
 -export([
     observe_logon_submit/2,
@@ -29,60 +33,63 @@
 %%
 
 observe_logon_submit(Event, Context) ->
-    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
+    ?DEBUG({Event, info(Context)}),
     undefined.
 
 observe_logon_ready_page(Event, Context) ->
-    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
+    ?DEBUG({Event, info(Context)}),
     undefined.
 
 %%
-%% Resources
+%% Resource mutation
 %%
 
-observe_rsc_insert(Event, Args, Context) ->
-    ?DEBUG({Event, Args}),
-    Args.
-
-observe_rsc_update_done(Event, Context) ->
-    ?DEBUG({Event, who(Context)}),
-    undefined.
-
-observe_rsc_delete(Event, Context) ->
-    ?DEBUG(Event),
-    undefined.
+observe_rsc_insert(Event, Args, Context) -> audit({Event, Args}, Context), Args.
+observe_rsc_update_done(Event, Context) -> audit(Event, Context), undefined.
+observe_rsc_delete(Event, Context) -> audit(Event, Context), undefined.
 
 %%
-%% Modules
+%% Module activation and de-activation
 %%
 
-observe_module_activate(Event, Context) ->
-    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
-    undefined.
+observe_module_activate(Event, Context) -> audit(Event, Context), undefined.
+observe_module_deactivate(Event, Context) -> audit(Event, Context), undefined.
 
-observe_module_deactivate(Event, Context) ->
-    ?DEBUG({Event, who(Context), with_what(Context), from(Context)}),
-    undefined.
+%%
+%%
+%%
+audit(Event, Context) ->
+    ?DEBUG({Event, info(Context)}).
 
 %%
 %% Helpers
 %%
 
-%% Who is logged on.
-%%
-who(Context) ->
-    z_acl:user(Context).
+info(Context) ->
+    Info = [{user_id, z_acl:user(Context)}],
 
-%% console or ip address 
-%%
-from(Context) ->
     case z_context:get_reqdata(Context) of
-        undefined -> console;
-        ReqData -> wrq:peer(ReqData)
+        undefined -> Info;
+        ReqData ->
+            ?DEBUG(m_audit:user_agent_id(client(Context), Context)),
+            [{ip_address, wrq:peer(ReqData)}, 
+            {user_agent, client(Context)}|Info]
     end.
 
 %%
 %% Get the user-agent header
 %%
-with_what(Context) ->
-    z_context:get_req_header("user-agent", Context).
+
+client(Context) ->
+    case z_context:get_reqdata(Context) of
+        undefined -> undefined;
+        _ReqData ->  z_context:get_req_header("user-agent", Context)
+    end.
+
+
+%%
+%% Database
+%%
+
+manage_schema(Version, Context) ->
+    m_audit:manage_schema(Version, Context).
