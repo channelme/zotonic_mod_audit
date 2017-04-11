@@ -10,7 +10,8 @@
 
 -export([
     user_agent_id/2,
-    manage_schema/2
+    manage_schema/2,
+    log/2
 ]).
 
 -include_lib("zotonic.hrl").
@@ -33,19 +34,50 @@ m_value(#m{value=undefined}, _Context) ->
 %% Api
 %%
 
+log(EventCategory, Context) ->
+    log(EventCategory, [], Context).
 
-user_agent_id(undefined, Context) -> undefined;
+log(EventCategory, Props, Context) ->
+    EventCatId = m_rsc:rid(EventCategory, Context),
+
+    {UserId, ContentGroupId} = case z_acl:user(Context) of
+        undefined -> {undefined, undefined};
+        Id -> 
+            CGId = m_rsc:p_no_acl(Id, content_group_id, Context),
+            {Id, CGId}
+    end,
+
+    IpAddress = ip_address(Context),
+    UserAgent = z_context:get_req_header("user-agent", Context),
+    UaId = user_agent_id(UserAgent, Context),
+
+    z_db:insert(audit, [{event_category_id, EventCatId}, 
+                        {user_id, UserId}, 
+                        {content_group_id, ContentGroupId},
+                        {ip_address, IpAddress}, 
+                        {ua_id, UaId} | Props], Context).
+
+
+ip_address(Context) ->
+    case z_context:get_reqdata(Context) of
+       undefined -> undefined;
+       ReqData -> wrq:peer(ReqData)
+    end.
+
+
+user_agent_id(undefined, _Context) -> undefined;
 user_agent_id(UserAgent, Context) ->
     BUA = z_convert:to_binary(UserAgent),
-    F = fun() ->
-        case z_db:q("select id from user_agent where text = $1", [BUA], Context) of
+    F = fun(Ctx) ->
+        case z_db:q("select id from user_agent where text = $1", [BUA], Ctx) of
             [] ->
-                {ok, Id} = z_db:insert(user_agent, [{text, BUA}], Context),
+                {ok, Id} = z_db:insert(user_agent, [{text, BUA}], Ctx),
                 Id;
             [{Id}] -> Id
        end
     end,
-    z_depcache:memo(F, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
+    Transaction = fun() -> z_db:transaction(F, Context) end,
+    z_depcache:memo(Transaction, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
 
 manage_schema(install, Context) ->
     z_db:create_table(user_agent, [
@@ -57,16 +89,21 @@ manage_schema(install, Context) ->
     z_db:equery("alter_table user_agent add constraint unique (text)", Context),
     z_db:equery("create index ua_text on user_agent(text)", Context),
 
-    z_db:create_table(audit_trail, [
+    z_db:create_table(audit, [
         #column_def{name=id, type="serial", is_nullable=false, primary_key=true},
-        #column_def{name=props, type="bytea", is_nullable=false}, 
-        #column_def{name=user_id, type="integer", is_nullable=true}
+        #column_def{name=event_category_id, type="integer", is_nullable=false},
+        #column_def{name=props, type="bytea", is_nullable=true}, 
+        #column_def{name=user_id, type="integer", is_nullable=true},
+        #column_def{name=content_group_id, type="integer", is_nullable=false},
         #column_def{name=ua_id, type="integer", is_nullable=true},
         #column_def{name=ip_address, type="character varying(40)", is_nullable=true},
-        #column_def{name=created, type="timestamp with time zone", is_nullable=false}
+        #column_def{name=created, type="timestamp with time zone", is_nullable=false, default="now()"}
     ], Context),
 
-    z_db:equery("alter_table audit_trail add constraint foreign key (user_id) references rsc(id) on update cascade on delete set null", Context),
-    z_db:equery("alter_table audit_trail add constraint foreign key (ua_id) references user_agent(id) on update delete on delete set null", Context),
+    z_db:equery("alter_table audit add constraint foreign key (event_category_id) references rsc(id) on update cascade on delete cascade", Context),
+
+    z_db:equery("alter_table audit add constraint foreign key (user_id) references rsc(id) on update cascade on delete set null", Context),
+    z_db:equery("alter_table audit add constraint foreign key (content_group_id) references rsc(id) on update cascade on delete cascade", Context),
+    z_db:equery("alter_table audit add constraint foreign key (ua_id) references user_agent(id) on update cascasde on delete set null", Context),
 
     ok.

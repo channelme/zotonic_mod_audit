@@ -1,4 +1,6 @@
-
+%%
+%%
+%%
 
 -module(mod_admin_audit).
 -author("Maas-Maarten Zeeman <mmzeeman@xs4all.nl>").
@@ -11,11 +13,11 @@
 -mod_provides([audit]).
 
 
--export([manage_schema/2]).
+-export([manage_schema/2, datamodel/0]).
 
 -export([
-    observe_logon_submit/2,
-    observe_logon_ready_page/2,
+    observe_auth_logon_done/2,
+    observe_auth_logoff_done/2,
 
     observe_rsc_insert/3,
     observe_rsc_update_done/2,
@@ -32,12 +34,14 @@
 %% Users
 %%
 
-observe_logon_submit(Event, Context) ->
+observe_auth_logon_done(Event, Context) ->
     ?DEBUG({Event, info(Context)}),
+    audit(Event, Context),
     undefined.
 
-observe_logon_ready_page(Event, Context) ->
+observe_auth_logoff_done(Event, Context) ->
     ?DEBUG({Event, info(Context)}),
+    audit(Event, Context),
     undefined.
 
 %%
@@ -58,22 +62,22 @@ observe_module_deactivate(Event, Context) -> audit(Event, Context), undefined.
 %%
 %%
 %%
+audit(auth_logon_done, Context) -> m_audit:log(logon, Context);
+audit(auth_logoff_done, Context) -> m_audit:log(logoff, Context);
 audit(Event, Context) ->
-    ?DEBUG({Event, info(Context)}).
+    ?DEBUG(Event),
+    ok.
+
 
 %%
 %% Helpers
 %%
 
 info(Context) ->
-    Info = [{user_id, z_acl:user(Context)}],
-
     case z_context:get_reqdata(Context) of
-        undefined -> Info;
+        undefined ->  {undefined, undefined};
         ReqData ->
-            ?DEBUG(m_audit:user_agent_id(client(Context), Context)),
-            [{ip_address, wrq:peer(ReqData)}, 
-            {user_agent, client(Context)}|Info]
+            {wrq:peer(ReqData), z_context:get_req_header("user-agent", Context)}
     end.
 
 %%
@@ -92,4 +96,17 @@ client(Context) ->
 %%
 
 manage_schema(Version, Context) ->
-    m_audit:manage_schema(Version, Context).
+    m_audit:manage_schema(Version, Context),
+    datamodel().
+
+datamodel() ->
+    #datamodel{
+       categories = [ 
+           {audit_event, meta, [{title, <<"Audit Event">>}]},
+           {auth_event, audit_event, [{title, <<"Authorization Event">>}]},
+           {logon, auth_event, [{title, <<"Login">>}]},
+           {logoff, auth_event, [{title, <<"Logoff">>}]}
+       ],
+       resources = [ ]
+    }.
+
