@@ -23,12 +23,15 @@
     observe_rsc_update_done/2,
     observe_rsc_delete/2,
 
-    observe_module_activate/2,
-    observe_module_deactivate/2
+    observe_audit_log/2
 ]).
 
 -include_lib("zotonic.hrl").
 -include_lib("modules/mod_admin/include/admin_menu.hrl").
+
+observe_audit_log({audit_log, EventCategory, Props}, Context) ->
+    m_audit:log(EventCategory, Props, Context).
+
 
 %%
 %% Users
@@ -53,18 +56,11 @@ observe_rsc_update_done(Event, Context) -> audit(Event, Context), undefined.
 observe_rsc_delete(Event, Context) -> audit(Event, Context), undefined.
 
 %%
-%% Module activation and de-activation
-%%
-
-observe_module_activate(Event, Context) -> audit(Event, Context), undefined.
-observe_module_deactivate(Event, Context) -> audit(Event, Context), undefined.
-
-%%
 %%
 %%
 audit(auth_logon_done, Context) -> m_audit:log(logon, Context);
 audit(auth_logoff_done, Context) -> m_audit:log(logoff, Context);
-audit(Event, Context) ->
+audit(Event, _Context) ->
     ?DEBUG(Event),
     ok.
 
@@ -79,17 +75,6 @@ info(Context) ->
         ReqData ->
             {wrq:peer(ReqData), z_context:get_req_header("user-agent", Context)}
     end.
-
-%%
-%% Get the user-agent header
-%%
-
-client(Context) ->
-    case z_context:get_reqdata(Context) of
-        undefined -> undefined;
-        _ReqData ->  z_context:get_req_header("user-agent", Context)
-    end.
-
 
 %%
 %% Database
