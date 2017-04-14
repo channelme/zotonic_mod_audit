@@ -32,19 +32,15 @@ m_to_list(_, _Context) ->
 m_value(#m{value=undefined}, _Context) ->
     undefined;
 m_value(#m{value=Id}, _Context) ->
-    get_visible(Id, Context);
+    undefined. %get_visible(Id, Context);
 
 
 %%
 %% Api
 %%
-p(Id, Property, Context)
-    when Property =:= category_id
-    orelse Property =:= user_id
-    orelse Property =:= content_group_id
-    orelse Property =:= user_agent_id
-    
 
+p(Id, Property, Context) ->
+    Property.
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
@@ -63,11 +59,10 @@ log(EventCategory, Props, Context) ->
     UserAgent = z_context:get_req_header("user-agent", Context),
     UaId = user_agent_id(UserAgent, Context),
 
-    z_db:insert(audit, [{category_id, EventCatId}, 
+    z_db:insert(audit,[{category_id, EventCatId}, 
                         {user_id, UserId}, 
                         {content_group_id, ContentGroupId},
                         {ip_address, IpAddress}, 
-                        {dispatch, Dispatch},
                         {ua_id, UaId} | Props], Context).
 
 ip_address(Context) ->
