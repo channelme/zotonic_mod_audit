@@ -19,10 +19,10 @@
 -define(MAXAGE_UA_STRING, 7200).
 
 %% @doc Fetch the value for the key from a model source %% @spec m_find_value(Key, Source, Context) -> term() m_find_value(_Id, _Context) -> undefined.
-m_find_value(Id, #m{value=undefined}=M, Context) ->
+m_find_value(Id, #m{value=undefined}=M, _Context) ->
     M#m{value=Id};
-m_find_value(Key, #m{value=Id}=M, Context) when is_integer(Id) ->
-    p(Id, Key, Context).
+m_find_value(_Key, #m{value=Id}=_M, _Context) when is_integer(Id) ->
+    undefined.
 
 %% @spec m_to_list(Source, Context) -> List
 m_to_list(_, _Context) ->
@@ -31,27 +31,29 @@ m_to_list(_, _Context) ->
 %% @spec m_value(Source, Context) -> term()
 m_value(#m{value=undefined}, _Context) ->
     undefined;
-m_value(#m{value=Id}, _Context) ->
-    get_visible(Id, Context);
+m_value(#m{value=Id}, Context) ->
+    get_visible(Id, Context).
 
 
 %%
 %% Api
 %%
-p(Id, Property, Context)
-    when Property =:= category_id
-    orelse Property =:= user_id
-    orelse Property =:= content_group_id
-    orelse Property =:= user_agent_id
-    
 
+get_visible(_Id, _Context) ->
+    %% TODO, return the visible properties of this audit item.
+    [].
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
 
-log(EventCategory, Props, Context) ->
-    EventCatId = m_rsc:rid(EventCategory, Context),
+log(EventCategory, Props, Context) when not is_integer(EventCategory) ->
+    case EventCatId = m_rsc:rid(EventCategory, Context) of
+        undefined ->
+            lager:info("Category ~p not defined, action not audited.", [EventCategory]);
+        EventCatId -> log(EventCatId, Props, Context)
+    end;
 
+log(EventCatId, Props, Context) when is_integer(EventCatId) ->
     {UserId, ContentGroupId} = case z_acl:user(Context) of
         undefined -> {undefined, undefined};
         Id -> 
@@ -67,7 +69,6 @@ log(EventCategory, Props, Context) ->
                         {user_id, UserId}, 
                         {content_group_id, ContentGroupId},
                         {ip_address, IpAddress}, 
-                        {dispatch, Dispatch},
                         {ua_id, UaId} | Props], Context).
 
 ip_address(Context) ->
@@ -75,7 +76,6 @@ ip_address(Context) ->
        undefined -> undefined;
        ReqData -> wrq:peer(ReqData)
     end.
-
 
 user_agent_id(undefined, _Context) -> undefined;
 user_agent_id(UserAgent, Context) ->
