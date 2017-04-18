@@ -31,17 +31,27 @@ m_to_list(_, _Context) ->
 %% @spec m_value(Source, Context) -> term()
 m_value(#m{value=undefined}, _Context) ->
     undefined;
+<<<<<<< HEAD
 m_value(#m{value=Id}, Context) ->
     get_visible(Id, Context).
+=======
+m_value(#m{value=Id}, _Context) ->
+    undefined. %get_visible(Id, Context);
+>>>>>>> 4d244c66a163798bc9c631c3c6da5fb350605a88
 
 
 %%
 %% Api
 %%
 
+<<<<<<< HEAD
 get_visible(_Id, _Context) ->
     %% TODO, return the visible properties of this audit item.
     [].
+=======
+p(Id, Property, Context) ->
+    Property.
+>>>>>>> 4d244c66a163798bc9c631c3c6da5fb350605a88
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
@@ -65,7 +75,7 @@ log(EventCatId, Props, Context) when is_integer(EventCatId) ->
     UserAgent = z_context:get_req_header("user-agent", Context),
     UaId = user_agent_id(UserAgent, Context),
 
-    z_db:insert(audit, [{category_id, EventCatId}, 
+    z_db:insert(audit,[{category_id, EventCatId}, 
                         {user_id, UserId}, 
                         {content_group_id, ContentGroupId},
                         {ip_address, IpAddress}, 

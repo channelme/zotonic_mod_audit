@@ -23,7 +23,9 @@
     observe_rsc_update_done/2,
     observe_rsc_delete/2,
 
-    observe_audit_log/2
+    observe_audit_log/2,
+
+    observe_search_query/2
 ]).
 
 -include_lib("zotonic.hrl").
@@ -32,18 +34,30 @@
 observe_audit_log({audit_log, EventCategory, Props}, Context) ->
     m_audit:log(EventCategory, Props, Context).
 
+observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
+    %% The number of weeks we have to look back.
+    Q = #search_sql{select="count(*) as count, (extract(year from created)::int, extract(week from created)::int) as iso_week",
+        from="audit audit",
+        group_by="iso_week",
+        order="iso_week ASC",
+        tables=[{rsc, "audit"}], 
+        assoc=true
+    },
+
+    undefined;
+observe_search_query(#search_query{}, _Context) ->
+    undefined.
+
 
 %%
 %% Users
 %%
 
 observe_auth_logon_done(Event, Context) ->
-    ?DEBUG({Event, info(Context)}),
     audit(Event, Context),
     undefined.
 
 observe_auth_logoff_done(Event, Context) ->
-    ?DEBUG({Event, info(Context)}),
     audit(Event, Context),
     undefined.
 
