@@ -75,7 +75,6 @@ observe_rsc_delete(Event, Context) -> audit(Event, Context), undefined.
 audit(auth_logon_done, Context) -> m_audit:log(logon, Context);
 audit(auth_logoff_done, Context) -> m_audit:log(logoff, Context);
 audit(Event, _Context) ->
-    ?DEBUG(Event),
     ok.
 
 

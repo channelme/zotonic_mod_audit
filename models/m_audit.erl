@@ -44,8 +44,9 @@ get_visible(_Id, _Context) ->
     %% TODO, return the visible properties of this audit item.
 [].
 
-p(Id, Property, Context) ->
-    Property.
+%p(Id, Property, Context) ->
+%    Property.
+%
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
@@ -96,16 +97,16 @@ user_agent_id(UserAgent, Context) ->
     z_depcache:memo(Transaction, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
 
 manage_schema(install, Context) ->
-    z_db:create_table(user_agent, [
+    ok = z_db:create_table(user_agent, [
         #column_def{name=id, type="serial", is_nullable=false, primary_key=true},
         #column_def{name=text, type="character varying(500)", is_nullable=false},
         #column_def{name=created, type="timestamp with time zone", is_nullable=false, default="now()"}
     ], Context),
 
-    z_db:equery("alter_table user_agent add constraint unique (text)", Context),
-    z_db:equery("create index ua_text on user_agent(text)", Context),
+    {ok, _, _} = z_db:equery("alter table user_agent add constraint uc_text unique (text)", Context),
+    {ok, _, _} = z_db:equery("create index ua_text on user_agent(text)", Context),
 
-    z_db:create_table(audit, [
+    ok = z_db:create_table(audit, [
         #column_def{name=id, type="serial", is_nullable=false, primary_key=true},
         #column_def{name=category_id, type="integer", is_nullable=false},
         #column_def{name=props, type="bytea", is_nullable=true}, 
@@ -116,10 +117,9 @@ manage_schema(install, Context) ->
         #column_def{name=created, type="timestamp with time zone", is_nullable=false, default="now()"}
     ], Context),
 
-    z_db:equery("alter_table audit add constraint foreign key (category_id) references rsc(id) on update cascade on delete cascade", Context),
-
-    z_db:equery("alter_table audit add constraint foreign key (user_id) references rsc(id) on update cascade on delete set null", Context),
-    z_db:equery("alter_table audit add constraint foreign key (content_group_id) references rsc(id) on update cascade on delete cascade", Context),
-    z_db:equery("alter_table audit add constraint foreign key (ua_id) references user_agent(id) on update cascasde on delete set null", Context),
+    {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_category_id foreign key (category_id) references rsc(id) on update cascade on delete cascade", Context),
+    {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_user_id foreign key (user_id) references rsc(id) on update cascade on delete set null", Context),
+    {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_content_group_id foreign key (content_group_id) references rsc(id) on update cascade on delete cascade", Context),
+    {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_ua_id foreign key (ua_id) references user_agent(id) on update cascade on delete set null", Context),
 
     ok.
