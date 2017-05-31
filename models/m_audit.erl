@@ -42,10 +42,10 @@ m_value(#m{value=Id}, Context) ->
 
 get_visible(_Id, _Context) ->
     %% TODO, return the visible properties of this audit item.
-[].
+    [].
 
-p(Id, Property, Context) ->
-    Property.
+%p(Id, Property, Context) ->
+%    Property.
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
@@ -59,7 +59,9 @@ log(EventCategory, Props, Context) when not is_integer(EventCategory) ->
 
 log(EventCatId, Props, Context) when is_integer(EventCatId) ->
     {UserId, ContentGroupId} = case z_acl:user(Context) of
-        undefined -> {undefined, undefined};
+        undefined -> 
+            SystemContentGroupId = m_rsc:rid(system_content_group, Context),
+            {undefined, SystemContentGroupId};
         Id -> 
             CGId = m_rsc:p_no_acl(Id, content_group_id, Context),
             {Id, CGId}
