@@ -11,7 +11,7 @@
 -export([
     user_agent_id/2,
     manage_schema/2,
-    log/2, log/3
+    log/2, log/3, log/5
 ]).
 
 -include_lib("zotonic.hrl").
@@ -44,21 +44,10 @@ get_visible(_Id, _Context) ->
     %% TODO, return the visible properties of this audit item.
     [].
 
-%p(Id, Property, Context) ->
-%    Property.
-%
-
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
 
-log(EventCategory, Props, Context) when not is_integer(EventCategory) ->
-    case EventCatId = m_rsc:rid(EventCategory, Context) of
-        undefined ->
-            lager:info("Category ~p not defined, action not audited.", [EventCategory]);
-        EventCatId -> log(EventCatId, Props, Context)
-    end;
-
-log(EventCatId, Props, Context) when is_integer(EventCatId) ->
+log(EventCat, Props, Context) ->
     {UserId, ContentGroupId} = case z_acl:user(Context) of
         undefined -> 
             SystemContentGroupId = m_rsc:rid(system_content_group, Context),
@@ -68,11 +57,21 @@ log(EventCatId, Props, Context) when is_integer(EventCatId) ->
             {Id, CGId}
     end,
 
+    log(EventCat, Props, UserId, ContentGroupId, Context).
+
+
+log(EventCat, Props, UserId, ContentGroupId, #context{}=Context) when not is_integer(EventCat) ->
+    case EventCatId = m_rsc:rid(EventCat, Context) of
+        undefined ->
+            lager:info("Category ~p not defined, action not audited.", [EventCat]);
+        EventCatId -> log(EventCatId, Props, UserId, ContentGroupId, Context)
+    end;
+log(EventCatId, Props, UserId, ContentGroupId, #context{}=Context) ->
     IpAddress = ip_address(Context),
     UserAgent = z_context:get_req_header("user-agent", Context),
     UaId = user_agent_id(UserAgent, Context),
 
-    z_db:insert(audit,[{category_id, EventCatId}, 
+    {ok, _} = z_db:insert(audit, [{category_id, EventCatId}, 
                         {user_id, UserId}, 
                         {content_group_id, ContentGroupId},
                         {ip_address, IpAddress}, 

@@ -32,11 +32,14 @@
 -include_lib("modules/mod_admin/include/admin_menu.hrl").
 
 observe_audit_log({audit_log, EventCategory, Props}, Context) ->
-    m_audit:log(EventCategory, Props, Context).
+    m_audit:log(EventCategory, Props, Context);
+observe_audit_log({audit_log, EventCategory, Props, ContentGroupId}, Context) ->
+    m_audit:log(EventCategory, Props, z_acl:user(Context), ContentGroupId, Context).
 
-observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
+
+observe_search_query(#search_query{search={audit_summary, _Args}}, _Context) ->
     %% The number of weeks we have to look back.
-    Q = #search_sql{select="count(*) as count, (extract(year from created)::int, extract(week from created)::int) as iso_week",
+    _Q = #search_sql{select="count(*) as count, (extract(year from created)::int, extract(week from created)::int) as iso_week",
         from="audit audit",
         group_by="iso_week",
         order="iso_week ASC",
@@ -74,20 +77,9 @@ observe_rsc_delete(Event, Context) -> audit(Event, Context), undefined.
 %%
 audit(auth_logon_done, Context) -> m_audit:log(logon, Context);
 audit(auth_logoff_done, Context) -> m_audit:log(logoff, Context);
-audit(Event, _Context) ->
+audit(_Event, _Context) ->
     ok.
 
-
-%%
-%% Helpers
-%%
-
-info(Context) ->
-    case z_context:get_reqdata(Context) of
-        undefined ->  {undefined, undefined};
-        ReqData ->
-            {wrq:peer(ReqData), z_context:get_req_header("user-agent", Context)}
-    end.
 
 %%
 %% Database
