@@ -46,8 +46,24 @@ observe_search_query(#search_query{search={audit_summary, _Args}}, _Context) ->
         tables=[{rsc, "audit"}], 
         assoc=true
     },
-
     undefined;
+observe_search_query(#search_query{search={audit_search, Args}}, _Context) ->
+    GroupPeriod = case proplists:get_value(group_by, Args) of
+        week ->
+            "(extract(year from created)::int, extract(week from created)::int) as group_period";
+        month ->
+            "(extract(year from created)::int, extract(month from created)::int) as group_period"
+    end,
+
+    
+
+    #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
+        from="audit audit",
+        group_by="group_period",
+        order="group_period ASC",
+        tables=[{rsc, "audit"}],
+        assoc=true
+    };
 observe_search_query(#search_query{}, _Context) ->
     undefined.
 
