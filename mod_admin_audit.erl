@@ -39,12 +39,12 @@ observe_audit_log({audit_log, EventCategory, Props, ContentGroupId}, Context) ->
 
 observe_search_query(#search_query{search={audit_summary, Args}}, _Context) ->
     %% The number of weeks we have to look back.
-    GroupPeriod = group_period(proplists:get_value(group_by, Args)),
+    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
 
     #search_sql{select="count(*) as count, " ++ GroupPeriod,
         from="audit audit",
-        group_by="group_period",
-        order="group_period ASC",
+        group_by=PeriodName,
+        order=PeriodName ++ " ASC",
         tables=[{rsc, "audit"}], 
         assoc=true
     };
@@ -54,12 +54,12 @@ observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
     ?DEBUG(m_rsc:p_no_acl(User, content_group_id, Context)),
     ?DEBUG(Args),
 
-    GroupPeriod = group_period(proplists:get_value(group_by, Args)),
+    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
 
     #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
         from="audit audit",
-        group_by="group_period",
-        order="group_period ASC",
+        group_by=PeriodName,
+        order=PeriodName ++ " ASC",
         tables=[{rsc, "audit"}],
         assoc=true
     };
@@ -120,7 +120,7 @@ datamodel() ->
 %%
 
 group_period(week) ->
-     "(extract(year from created)::int, extract(week from created)::int) as group_period";
+     {"iso_week", "(extract(year from created)::int, extract(week from created)::int) as iso_week"} ;
 group_period(month) ->
-    "(extract(year from created)::int, extract(month from created)::int) as group_period".
+    {"iso_month", "(extract(year from created)::int, extract(month from created)::int) as iso_month"}.
 
