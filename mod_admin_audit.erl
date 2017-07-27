@@ -45,7 +45,7 @@ observe_search_query(#search_query{search={audit_summary, Args}}, _Context) ->
         from="audit audit",
         group_by=PeriodName,
         order=PeriodName ++ " ASC",
-        tables=[{rsc, "audit"}], 
+        tables=[{rsc, "audit"}],
         assoc=true
     };
 
@@ -56,13 +56,18 @@ observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
 
     {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
 
-    #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
+    Q = #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
         from="audit audit",
         group_by=PeriodName,
         order=PeriodName ++ " ASC",
-        tables=[{rsc, "audit"}],
+        tables=[{audit, "audit"}],
         assoc=true
-    };
+    },
+
+    Q;
+
+    %% ?DEBUG(search_query:parse_query([{cat_exact, conversation_closed}], Context, Q));
+
 observe_search_query(#search_query{}, _Context) ->
     undefined.
 
@@ -123,4 +128,6 @@ group_period(week) ->
      {"iso_week", "(extract(year from created)::int, extract(week from created)::int) as iso_week"} ;
 group_period(month) ->
     {"iso_month", "(extract(year from created)::int, extract(month from created)::int) as iso_month"}.
+
+
 
