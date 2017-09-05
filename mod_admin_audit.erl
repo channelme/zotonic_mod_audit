@@ -36,36 +36,65 @@ observe_audit_log({audit_log, EventCategory, Props}, Context) ->
 observe_audit_log({audit_log, EventCategory, Props, ContentGroupId}, Context) ->
     m_audit:log(EventCategory, Props, z_acl:user(Context), ContentGroupId, Context).
 
-
-observe_search_query(#search_query{search={audit_summary, Args}}, _Context) ->
-    %% The number of weeks we have to look back.
+observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
     {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
+
+    {Where, QueryArgs} = case content_groups(Context) of
+        all -> {"", []};
+        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
+    end,
+    CatExact = get_cat_exact(Args),
 
     #search_sql{select="count(*) as count, " ++ GroupPeriod,
         from="audit audit",
         group_by=PeriodName,
         order=PeriodName ++ " ASC",
-        tables=[{rsc, "audit"}], 
-        assoc=true
+        tables=[{audit, "audit"}],
+        cats_exact=CatExact,
+        assoc=true,
+        where=Where,
+        args=QueryArgs
     };
 
 observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
-    User = z_acl:user(Context),
-    ?DEBUG(m_rsc:p_no_acl(User, content_group_id, Context)),
-    ?DEBUG(Args),
-
     {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
+
+    {Where, QueryArgs} = case content_groups(Context) of
+        all -> {"", []};
+        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
+    end,
+
+    CatExact = get_cat_exact(Args),
 
     #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
         from="audit audit",
         group_by=PeriodName,
         order=PeriodName ++ " ASC",
-        tables=[{rsc, "audit"}],
-        assoc=true
+        tables=[{audit, "audit"}],
+        cats_exact=CatExact,
+        assoc=true,
+        where=Where,
+        args=QueryArgs
     };
 observe_search_query(#search_query{}, _Context) ->
     undefined.
 
+get_cat_exact(Args) ->
+    case proplists:get_all_values(cat_exact, Args) of
+        [] -> [];
+        Cats -> [{"audit", Cats}]
+    end.
+
+%%
+%%
+content_groups(Context) ->
+    case z_acl:is_admin(Context) of
+       true -> all;
+       false ->
+           ContentGroupId = m_rsc:p_no_acl(z_acl:user(Context), content_group_id, Context),
+           Children = m_hierarchy:children(content_group, ContentGroupId, Context),
+           [ContentGroupId | Children]
+    end.
 
 %%
 %% Users
