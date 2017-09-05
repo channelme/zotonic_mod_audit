@@ -76,6 +76,7 @@ observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
         where=Where,
         args=QueryArgs
     };
+
 observe_search_query(#search_query{}, _Context) ->
     undefined.
 
@@ -152,4 +153,6 @@ group_period(week) ->
      {"iso_week", "(extract(year from created)::int, extract(week from created)::int) as iso_week"} ;
 group_period(month) ->
     {"iso_month", "(extract(year from created)::int, extract(month from created)::int) as iso_month"}.
+
+
 

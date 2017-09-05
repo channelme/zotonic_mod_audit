@@ -49,10 +49,10 @@ log(EventCategory, Context) ->
 
 log(EventCat, Props, Context) ->
     {UserId, ContentGroupId} = case z_acl:user(Context) of
-        undefined -> 
+        undefined ->
             SystemContentGroupId = m_rsc:rid(system_content_group, Context),
             {undefined, SystemContentGroupId};
-        Id -> 
+        Id ->
             CGId = m_rsc:p_no_acl(Id, content_group_id, Context),
             {Id, CGId}
     end,
