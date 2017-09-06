@@ -37,48 +37,35 @@ observe_audit_log({audit_log, EventCategory, Props, ContentGroupId}, Context) ->
     m_audit:log(EventCategory, Props, z_acl:user(Context), ContentGroupId, Context).
 
 observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
-    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
-
-    {Where, QueryArgs} = case content_groups(Context) of
-        all -> {"", []};
-        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
-    end,
-    CatExact = get_cat_exact(Args),
-
-    #search_sql{select="count(*) as count, " ++ GroupPeriod,
-        from="audit audit",
-        group_by=PeriodName,
-        order=PeriodName ++ " ASC",
-        tables=[{audit, "audit"}],
-        cats_exact=CatExact,
-        assoc=true,
-        where=Where,
-        args=QueryArgs
-    };
+    audit_query("count(*) as count", Args, Context);
 
 observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
-    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
-
-    {Where, QueryArgs} = case content_groups(Context) of
-        all -> {"", []};
-        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
-    end,
-
-    CatExact = get_cat_exact(Args),
-
-    #search_sql{select="array_agg(audit.id) as audit_ids, " ++ GroupPeriod,
-        from="audit audit",
-        group_by=PeriodName,
-        order=PeriodName ++ " ASC",
-        tables=[{audit, "audit"}],
-        cats_exact=CatExact,
-        assoc=true,
-        where=Where,
-        args=QueryArgs
-    };
+    audit_query("array_agg(audit.id) as audit_ids", Args, Context);
 
 observe_search_query(#search_query{}, _Context) ->
     undefined.
+
+audit_query(Select, Args, Context) ->
+    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
+
+    {Where, QueryArgs} = case content_groups(Context) of
+        all -> {"", []};
+        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
+    end,
+
+    CatExact = get_cat_exact(Args),
+
+    #search_sql{select=Select ++ ", " ++ GroupPeriod,
+        from="audit audit",
+        group_by=PeriodName,
+        order=PeriodName ++ " ASC",
+        tables=[{audit, "audit"}],
+        cats_exact=CatExact,
+        assoc=true,
+        where=Where,
+        args=QueryArgs
+    }.
+
 
 get_cat_exact(Args) ->
     case proplists:get_all_values(cat_exact, Args) of
@@ -149,6 +136,8 @@ datamodel() ->
 %% Helpers
 %%
 
+group_period(day) ->
+     {"iso_date", "(extract(year from created)::int, extract(month from created)::int, extract(day from created)::int) as iso_date"} ;
 group_period(week) ->
      {"iso_week", "(extract(year from created)::int, extract(week from created)::int) as iso_week"} ;
 group_period(month) ->

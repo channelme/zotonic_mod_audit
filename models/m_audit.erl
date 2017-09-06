@@ -31,7 +31,6 @@ m_to_list(_, _Context) ->
 %% @spec m_value(Source, Context) -> term()
 m_value(#m{value=undefined}, _Context) ->
     undefined;
-
 m_value(#m{value=Id}, Context) ->
     get_visible(Id, Context).
 
