@@ -14,6 +14,13 @@
     log/2, log/3, log/5
 ]).
 
+-export([
+    p/3,
+    p_no_acl/3,
+    get/2,
+    get_raw/2
+]).
+
 -include_lib("zotonic.hrl").
 
 -define(MAXAGE_UA_STRING, 7200).
@@ -21,8 +28,8 @@
 %% @doc Fetch the value for the key from a model source %% @spec m_find_value(Key, Source, Context) -> term() m_find_value(_Id, _Context) -> undefined.
 m_find_value(Id, #m{value=undefined}=M, _Context) ->
     M#m{value=Id};
-m_find_value(_Key, #m{value=Id}=_M, _Context) when is_integer(Id) ->
-    undefined.
+m_find_value(Key, #m{value=Id}, Context) when is_integer(Id) ->
+    p(Id, Key, Context).
 
 %% @spec m_to_list(Source, Context) -> List
 m_to_list(_, _Context) ->
@@ -34,14 +41,34 @@ m_value(#m{value=undefined}, _Context) ->
 m_value(#m{value=Id}, Context) ->
     get_visible(Id, Context).
 
-
 %%
 %% Api
 %%
+p(Id, Predicate, Context) ->
+    case ?DEBUG(z_acl:is_allowed(view_audit_event, Id, Context)) of
+        true -> p_no_acl(Id, Predicate, Context);
+        _ -> undefined
+    end.
 
-get_visible(_Id, _Context) ->
-    %% TODO, return the visible properties of this audit item.
-    [].
+p_no_acl(Id, Predicate, Context) ->
+    proplists:get_value(Predicate, get(Id, Context), undefined).
+
+get(Id, Context) when is_integer(Id) ->
+    z_depcache:memo(fun() -> get_raw(Id, Context) end, {audit, Id}, ?DAY, Context).
+
+get_raw(Id, Context) ->
+    SQL = <<"SELECT * FROM audit WHERE id = $1">>,
+    z_db:assoc_props_row(SQL, [Id], Context).
+
+get_visible(Id, Context) ->
+    case ?DEBUG(z_acl:is_allowed(view_audit_event, Id, Context)) of
+        true -> get(Id, Context);
+        _ -> []
+    end.
+
+%%
+%% Log audit events
+%%
 
 log(EventCategory, Context) ->
     log(EventCategory, [], Context).
@@ -57,7 +84,6 @@ log(EventCat, Props, Context) ->
     end,
 
     log(EventCat, Props, UserId, ContentGroupId, Context).
-
 
 log(EventCat, Props, UserId, ContentGroupId, #context{}=Context) when not is_integer(EventCat) ->
     case EventCatId = m_rsc:rid(EventCat, Context) of
