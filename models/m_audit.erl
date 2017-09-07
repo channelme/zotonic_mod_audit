@@ -17,6 +17,7 @@
 -export([
     p/3,
     p_no_acl/3,
+    is_a/3,
     get/2,
     get_raw/2
 ]).
@@ -45,7 +46,7 @@ m_value(#m{value=Id}, Context) ->
 %% Api
 %%
 p(Id, Predicate, Context) ->
-    case ?DEBUG(z_acl:is_allowed(view_audit_event, Id, Context)) of
+    case z_acl:is_allowed(view_audit_event, Id, Context) of
         true -> p_no_acl(Id, Predicate, Context);
         _ -> undefined
     end.
@@ -61,10 +62,13 @@ get_raw(Id, Context) ->
     z_db:assoc_props_row(SQL, [Id], Context).
 
 get_visible(Id, Context) ->
-    case ?DEBUG(z_acl:is_allowed(view_audit_event, Id, Context)) of
+    case z_acl:is_allowed(view_audit_event, Id, Context) of
         true -> get(Id, Context);
         _ -> []
     end.
+
+is_a(Id, CatId, Context) ->
+     p_no_acl(Id, category_id, Context) =:= CatId.
 
 %%
 %% Log audit events
