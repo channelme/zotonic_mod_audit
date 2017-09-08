@@ -46,11 +46,16 @@ observe_search_query(#search_query{}, _Context) ->
     undefined.
 
 audit_query(Select, Args, Context) ->
+    {date_start, DateStart} = proplists:lookup(date_start, Args),
+    {date_end, DateEnd}  = proplists:lookup(date_end, Args), 
+
     {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
 
-    {Where, QueryArgs} = case content_groups(Context) of
-        all -> {"", []};
-        Ids -> {"audit.content_group_id in (SELECT(unnest($1::int[])))", [Ids]}
+    Where = "audit.created >= $1 AND audit.created <= $2",
+
+    {Where1, QueryArgs} = case content_groups(Context) of
+        all -> {Where, [DateStart, DateEnd]};
+        Ids -> {[Where, "AND audit.content_group_id in (SELECT(unnest($3::int[])))"], [DateStart, DateEnd, Ids]}
     end,
 
     CatExact = get_cat_exact(Args),
@@ -62,10 +67,9 @@ audit_query(Select, Args, Context) ->
         tables=[{audit, "audit"}],
         cats_exact=CatExact,
         assoc=true,
-        where=Where,
+        where=Where1,
         args=QueryArgs
     }.
-
 
 get_cat_exact(Args) ->
     case proplists:get_all_values(cat_exact, Args) of
