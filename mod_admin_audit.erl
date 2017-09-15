@@ -42,6 +42,9 @@ observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
 observe_search_query(#search_query{search={audit_search, Args}}, Context) ->
     audit_query("array_agg(audit.id) as audit_ids", Args, Context);
 
+observe_search_query(#search_query{search={audit, Args}}, Context) ->
+    audit_query("audit.id", Args, Context);
+
 observe_search_query(#search_query{}, _Context) ->
     undefined.
 
@@ -49,7 +52,6 @@ audit_query(Select, Args, Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
     {date_end, DateEnd}  = proplists:lookup(date_end, Args), 
 
-    {PeriodName, GroupPeriod} = group_period(proplists:get_value(group_by, Args)),
 
     Where = "audit.created >= $1 AND audit.created <= $2",
 
@@ -60,16 +62,30 @@ audit_query(Select, Args, Context) ->
 
     CatExact = get_cat_exact(Args),
 
-    #search_sql{select=Select ++ ", " ++ GroupPeriod,
-        from="audit audit",
-        group_by=PeriodName,
-        order=PeriodName ++ " ASC",
-        tables=[{audit, "audit"}],
-        cats_exact=CatExact,
-        assoc=true,
-        where=Where1,
-        args=QueryArgs
-    }.
+    case proplists:get_value(group_by, Args) of
+        undefined ->
+            #search_sql{select=Select,
+                from="audit audit",
+                order="audit.created ASC",
+                tables=[{audit, "audit"}],
+                cats_exact=CatExact,
+                assoc=true,
+                where=Where1,
+                args=QueryArgs
+            };
+        GroupBy ->
+            {PeriodName, GroupPeriod} = group_period(GroupBy),
+            #search_sql{select=Select ++ ", " ++ GroupPeriod,
+                from="audit audit",
+                group_by=PeriodName,
+                order=PeriodName ++ " ASC",
+                tables=[{audit, "audit"}],
+                cats_exact=CatExact,
+                assoc=true,
+                where=Where1,
+                args=QueryArgs
+            }
+    end.
 
 get_cat_exact(Args) ->
     case proplists:get_all_values(cat_exact, Args) of
