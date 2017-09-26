@@ -50,8 +50,9 @@ observe_search_query(#search_query{}, _Context) ->
 
 audit_query(Select, Args, Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
-    {date_end, DateEnd}  = proplists:lookup(date_end, Args), 
+    {date_end, DateEnd}  = proplists:lookup(date_end, Args),
 
+    Assoc = proplists:get_value(assoc, Args, true),
 
     Where = "audit.created >= $1 AND audit.created <= $2",
 
@@ -69,19 +70,19 @@ audit_query(Select, Args, Context) ->
                 order="audit.created ASC",
                 tables=[{audit, "audit"}],
                 cats_exact=CatExact,
-                assoc=true,
+                assoc=Assoc,
                 where=Where1,
                 args=QueryArgs
             };
         GroupBy ->
-            {PeriodName, GroupPeriod} = group_period(GroupBy),
+            {PeriodName, GroupPeriod} = group_period(GroupBy, Context),
             #search_sql{select=Select ++ ", " ++ GroupPeriod,
                 from="audit audit",
                 group_by=PeriodName,
                 order=PeriodName ++ " ASC",
                 tables=[{audit, "audit"}],
                 cats_exact=CatExact,
-                assoc=true,
+                assoc=Assoc,
                 where=Where1,
                 args=QueryArgs
             }
@@ -155,13 +156,16 @@ datamodel() ->
 %%
 %% Helpers
 %%
+group_period(Period, Context)  ->
+    group_period_at_tz(Period, z_convert:to_list(z_context:tz(Context))).
 
-group_period(day) ->
-     {"iso_date", "(extract(year from created)::int, extract(month from created)::int, extract(day from created)::int) as iso_date"} ;
-group_period(week) ->
-     {"iso_week", "(extract(year from created)::int, extract(week from created)::int) as iso_week"} ;
-group_period(month) ->
-    {"iso_month", "(extract(year from created)::int, extract(month from created)::int) as iso_month"}.
+
+group_period_at_tz(day, TZ) when is_list(TZ) ->
+     {"iso_date", "(extract(year from (created at time zone '" ++ TZ ++ "'))::int, extract(month from (created at time zone '" ++ TZ ++ "'))::int, extract(day from created)::int) as iso_date"} ;
+group_period_at_tz(week, TZ) when is_list(TZ) ->
+     {"iso_week", "(extract(isoyear from (created at time zone '" ++ TZ ++ "'))::int, extract(week from (created at time zone '" ++ TZ ++ "'))::int) as iso_week"} ;
+group_period_at_tz(month, TZ) when is_list(TZ) ->
+    {"iso_month", "(extract(year from (created at time zone '" ++ TZ ++ "'))::int, extract(month from (created at time zone '" ++ TZ ++ "'))::int) as iso_month"}.
 
 
 

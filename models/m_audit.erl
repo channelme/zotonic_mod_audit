@@ -19,6 +19,7 @@
     p_no_acl/3,
     is_a/3,
     get/2,
+    get_visible/2,
     get_raw/2
 ]).
 
