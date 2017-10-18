@@ -8,7 +8,7 @@
 -mod_title("Admin audit functionality").
 -mod_description("Support audit log of important actions.").
 -mod_prio(1).
--mod_schema(1).
+-mod_schema(2).
 -mod_depends([admin, menu]).
 -mod_provides([audit]).
 
@@ -18,6 +18,8 @@
 -export([
     observe_auth_logon_done/2,
     observe_auth_logoff_done/2,
+
+    observe_auth_logon_error/3,
 
     observe_rsc_insert/3,
     observe_rsc_update_done/2,
@@ -109,13 +111,13 @@ content_groups(Context) ->
 %% Users
 %%
 
-observe_auth_logon_done(Event, Context) ->
-    audit(Event, Context),
-    undefined.
+observe_auth_logon_done(Event, Context) -> audit(Event, Context), undefined.
+observe_auth_logoff_done(Event, Context) -> audit(Event, Context), undefined.
 
-observe_auth_logoff_done(Event, Context) ->
+observe_auth_logon_error(Event, FoldContext, Context) ->
+    ?DEBUG(hier),
     audit(Event, Context),
-    undefined.
+    FoldContext.
 
 %%
 %% Resource mutation
@@ -130,6 +132,18 @@ observe_rsc_delete(Event, Context) -> audit(Event, Context), undefined.
 %%
 audit(auth_logon_done, Context) -> m_audit:log(logon, Context);
 audit(auth_logoff_done, Context) -> m_audit:log(logoff, Context);
+audit(#auth_logon_error{reason="pw"}, Context) ->
+    Username = z_context:get_q(username, Context),
+    case m_identity:lookup_by_username(Username, Context) of
+        undefined ->
+            %% Probably a wrong password.
+            m_audit:log(logon_error, [{username, Username}, {reason, no_user}], Context);
+        IdentityProps ->
+            Id = proplists:get_value(rsc_id, IdentityProps),
+            ContentGroupId = m_rsc:p_no_acl(Id, content_group_id, Context),
+            m_audit:log(logon_error, [{reason, password}], Id, ContentGroupId, Context)
+    end;
+
 audit(_Event, _Context) ->
     ok.
 
@@ -148,7 +162,8 @@ datamodel() ->
            {audit_event, meta, [{title, <<"Audit Event">>}]},
            {auth_event, audit_event, [{title, <<"Authorization Event">>}]},
            {logon, auth_event, [{title, <<"Login">>}]},
-           {logoff, auth_event, [{title, <<"Logoff">>}]}
+           {logoff, auth_event, [{title, <<"Logoff">>}]},
+           {logon_error, auth_event, [{title, <<"Logon Error">>}]}
        ],
        resources = [ ]
     }.

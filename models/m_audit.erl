@@ -153,4 +153,8 @@ manage_schema(install, Context) ->
     {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_content_group_id foreign key (content_group_id) references rsc(id) on update cascade on delete cascade", Context),
     {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_ua_id foreign key (ua_id) references user_agent(id) on update cascade on delete set null", Context),
 
+    ok;
+manage_schema({upgrade, 2}, _Context) ->
+    %% Schema doesn't change
     ok.
+
