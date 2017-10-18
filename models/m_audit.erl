@@ -101,10 +101,10 @@ log(EventCatId, Props, UserId, ContentGroupId, #context{}=Context) ->
     UserAgent = z_context:get_req_header("user-agent", Context),
     UaId = user_agent_id(UserAgent, Context),
 
-    {ok, _} = z_db:insert(audit, [{category_id, EventCatId}, 
-                        {user_id, UserId}, 
+    {ok, _} = z_db:insert(audit, [{category_id, EventCatId},
+                        {user_id, UserId},
                         {content_group_id, ContentGroupId},
-                        {ip_address, IpAddress}, 
+                        {ip_address, IpAddress},
                         {ua_id, UaId} | Props], Context).
 
 ip_address(Context) ->
@@ -126,6 +126,14 @@ user_agent_id(UserAgent, Context) ->
     end,
     Transaction = fun() -> z_db:transaction(F, Context) end,
     z_depcache:memo(Transaction, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
+
+manage_schema({upgrade, 2}, Context) ->
+    {ok, _, _} = z_db:equery("create index fki_audit_category_id on audit(category_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_user_id on audit(user_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_content_group_id on audit(content_group_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_created on audit(created)", Context),
+
+    ok;
 
 manage_schema(install, Context) ->
     ok = z_db:create_table(user_agent, [
@@ -156,5 +164,6 @@ manage_schema(install, Context) ->
     ok;
 manage_schema({upgrade, 2}, _Context) ->
     %% Schema doesn't change
-    ok.
+    %% Create the missing indexes
+    ok = manage_schema({upgrade, 2}, Context).
 
