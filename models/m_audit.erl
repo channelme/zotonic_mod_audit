@@ -127,13 +127,6 @@ user_agent_id(UserAgent, Context) ->
     Transaction = fun() -> z_db:transaction(F, Context) end,
     z_depcache:memo(Transaction, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
 
-manage_schema({upgrade, 2}, Context) ->
-    {ok, _, _} = z_db:equery("create index fki_audit_category_id on audit(category_id)", Context),
-    {ok, _, _} = z_db:equery("create index fki_audit_user_id on audit(user_id)", Context),
-    {ok, _, _} = z_db:equery("create index fki_audit_content_group_id on audit(content_group_id)", Context),
-    {ok, _, _} = z_db:equery("create index fki_audit_created on audit(created)", Context),
-
-    ok;
 
 manage_schema(install, Context) ->
     ok = z_db:create_table(user_agent, [
@@ -162,8 +155,14 @@ manage_schema(install, Context) ->
     {ok, _, _} = z_db:equery("alter table audit add constraint fk_audit_ua_id foreign key (ua_id) references user_agent(id) on update cascade on delete set null", Context),
 
     ok;
-manage_schema({upgrade, 2}, _Context) ->
-    %% Schema doesn't change
-    %% Create the missing indexes
-    ok = manage_schema({upgrade, 2}, Context).
+manage_schema({upgrade, 2}, Context) ->
+    {ok, _, _} = z_db:equery("create index fki_audit_category_id on audit(category_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_user_id on audit(user_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_content_group_id on audit(content_group_id)", Context),
+    {ok, _, _} = z_db:equery("create index fki_audit_created on audit(created)", Context),
+
+    ok;
+manage_schema({upgrade, 3}, _Context) ->
+    %% Schema doesn't change, but the data model did.
+    ok.
 

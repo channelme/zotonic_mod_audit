@@ -8,10 +8,9 @@
 -mod_title("Admin audit functionality").
 -mod_description("Support audit log of important actions.").
 -mod_prio(1).
--mod_schema(2).
+-mod_schema(3).
 -mod_depends([admin, menu]).
 -mod_provides([audit]).
-
 
 -export([manage_schema/2, datamodel/0]).
 
