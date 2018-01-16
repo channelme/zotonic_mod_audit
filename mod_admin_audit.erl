@@ -110,12 +110,27 @@ content_groups(Context) ->
 %% Users
 %%
 
-observe_auth_logon_done(Event, Context) -> audit(Event, Context), undefined.
-observe_auth_logoff_done(Event, Context) -> audit(Event, Context), undefined.
+observe_auth_logon_done(Event, Context) -> 
+    try
+        audit(Event, Context)
+    catch
+        Exception:Reason -> ?LOG("Unexpected error auditing logon_done. ~p:~p", [Exception, Reason])
+    end,
+    undefined.
+observe_auth_logoff_done(Event, Context) -> 
+    try
+        audit(Event, Context)
+    catch
+        Exception:Reason -> ?LOG("Unexpected error auditing logoff_done. ~p:~p", [Exception, Reason])
+    end,
+    undefined.
 
 observe_auth_logon_error(Event, FoldContext, Context) ->
-    ?DEBUG(hier),
-    audit(Event, Context),
+    try
+        audit(Event, Context)
+    catch
+        Exception:Reason -> ?LOG("Unexpected error auditing logon_error. ~p:~p", [Exception, Reason])
+    end,
     FoldContext.
 
 %%
@@ -170,7 +185,9 @@ datamodel() ->
 %%
 %% Helpers
 %%
-group_period(Period, Context)  ->
+group_period(user, Context)  ->
+    {"user_id", "user_id"};
+group_period(Period, Context)  when Period =:= day orelse Period =:= week orelse Period =:= week ->
     group_period_at_tz(Period, z_convert:to_list(z_context:tz(Context))).
 
 
