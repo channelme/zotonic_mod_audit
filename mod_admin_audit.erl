@@ -170,6 +170,9 @@ datamodel() ->
 %%
 %% Helpers
 %%
+
+group_period(user, _Context)  ->
+    {"user_id", "user_id"};
 group_period(Period, Context)  ->
     group_period_at_tz(Period, z_convert:to_list(z_context:tz(Context))).
 
