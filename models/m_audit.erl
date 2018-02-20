@@ -92,8 +92,7 @@ log(EventCat, Props, Context) ->
 
 log(EventCat, Props, UserId, ContentGroupId, #context{}=Context) when not is_integer(EventCat) ->
     case EventCatId = m_rsc:rid(EventCat, Context) of
-        undefined ->
-            lager:info("Category ~p not defined, action not audited.", [EventCat]);
+        undefined -> lager:error("Category ~p not defined, action not audited.", [EventCat]);
         EventCatId -> log(EventCatId, Props, UserId, ContentGroupId, Context)
     end;
 log(EventCatId, Props, UserId, ContentGroupId, #context{}=Context) ->
@@ -101,11 +100,15 @@ log(EventCatId, Props, UserId, ContentGroupId, #context{}=Context) ->
     UserAgent = z_context:get_req_header("user-agent", Context),
     UaId = user_agent_id(UserAgent, Context),
 
-    {ok, _} = z_db:insert(audit, [{category_id, EventCatId},
-                        {user_id, UserId},
-                        {content_group_id, ContentGroupId},
-                        {ip_address, IpAddress},
-                        {ua_id, UaId} | Props], Context).
+    AuditProps = [{category_id, EventCatId},
+                  {user_id, UserId},
+                  {content_group_id, ContentGroupId},
+                  {ip_address, IpAddress},
+                  {ua_id, UaId} | Props],
+
+    {ok, Id} = z_db:insert(audit, AuditProps, Context),
+
+    z_notifier:notify({audit_insert_done, Id, AuditProps}, Context).
 
 ip_address(Context) ->
     case z_context:get_reqdata(Context) of
