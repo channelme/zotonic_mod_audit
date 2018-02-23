@@ -62,13 +62,16 @@ audit_query(Select, Args, Context) ->
         Ids -> {[Where, "AND audit.content_group_id in (SELECT(unnest($3::int[])))"], [DateStart, DateEnd, Ids]}
     end,
 
+
     CatExact = get_cat_exact(Args),
 
     case proplists:get_value(group_by, Args) of
         undefined ->
+            Order = get_order(proplists:get_value(sort, Args)),
+
             #search_sql{select=Select,
                 from="audit audit",
-                order="audit.created ASC",
+                order=Order,
                 tables=[{audit, "audit"}],
                 cats_exact=CatExact,
                 assoc=Assoc,
@@ -88,6 +91,10 @@ audit_query(Select, Args, Context) ->
                 args=QueryArgs
             }
     end.
+
+get_order(undefined) -> "audit.created ASC";
+get_order("+" ++ Field) -> Field ++ " ASC";
+get_order("-" ++ Field) -> Field ++ " DESC".
 
 get_cat_exact(Args) ->
     case proplists:get_all_values(cat_exact, Args) of
