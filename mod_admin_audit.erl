@@ -53,15 +53,16 @@ audit_query(Select, Args, Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
     {date_end, DateEnd}  = proplists:lookup(date_end, Args),
 
+    FilterGroupIds = proplists:get_value(filter_content_groups, Args, []),
+
     Assoc = proplists:get_value(assoc, Args, true),
 
     Where = "audit.created >= $1 AND audit.created <= $2",
-
-    {Where1, QueryArgs} = case content_groups(Context) of
+	
+    {Where1, QueryArgs} = case content_groups(FilterGroupIds, Context) of
         all -> {Where, [DateStart, DateEnd]};
         Ids -> {[Where, "AND audit.content_group_id in (SELECT(unnest($3::int[])))"], [DateStart, DateEnd, Ids]}
     end,
-
 
     CatExact = get_cat_exact(Args),
 
@@ -104,14 +105,27 @@ get_cat_exact(Args) ->
 
 %%
 %%
-content_groups(Context) ->
-    case z_acl:is_admin(Context) of
+content_groups(FilterIds, Context) ->
+    R = case z_acl:is_admin(Context) of
        true -> all;
        false ->
            ContentGroupId = m_rsc:p_no_acl(z_acl:user(Context), content_group_id, Context),
            Children = m_hierarchy:children(content_group, ContentGroupId, Context),
            [ContentGroupId | Children]
+    end,
+
+    case FilterIds of
+        [] -> R;
+        _ -> 
+	    case R of
+	        all -> FilterIds;
+                _ -> 
+		    S1 = sets:from_list(R),
+		    S2 = sets:from_list(FilterIds),
+                    sets:to_list(sets:intersection(S1, S2))
+            end
     end.
+
 
 %%
 %% Users
