@@ -37,6 +37,10 @@ observe_audit_log({audit_log, EventCategory, Props}, Context) ->
 observe_audit_log({audit_log, EventCategory, Props, ContentGroupId}, Context) ->
     m_audit:log(EventCategory, Props, z_acl:user(Context), ContentGroupId, Context).
 
+% Search queries
+observe_search_query(#search_query{search={audit_unique_logons, Args}}, Context) ->
+    audit_unique_logons(Args, Context);
+
 observe_search_query(#search_query{search={audit_summary, Args}}, Context) ->
     audit_query("count(*) as count", Args, Context);
 
@@ -48,6 +52,17 @@ observe_search_query(#search_query{search={audit, Args}}, Context) ->
 
 observe_search_query(#search_query{}, _Context) ->
     undefined.
+
+audit_unique_logons(Args, _Context) ->
+    {date_start, DateStart} = proplists:lookup(date_start, Args),
+    {date_end, DateEnd}  = proplists:lookup(date_end, Args),
+
+    #search_sql{select="distinct user_id",
+	from="audit audit",
+        tables=[{audit, "audit"}],
+	where="audit.created >= $1 AND audit.created <= $2",
+        args=[DateStart, DateEnd]
+    }.
 
 audit_query(Select, Args, Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
