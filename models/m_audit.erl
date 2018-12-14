@@ -68,8 +68,9 @@ get_visible(Id, Context) ->
         _ -> []
     end.
 
-is_a(Id, CatId, Context) ->
-     p_no_acl(Id, category_id, Context) =:= CatId.
+is_a(Id, Cat, Context) ->
+    CatId = m_rsc:rid(Cat, Context),
+    p_no_acl(Id, category_id, Context) =:= CatId.
 
 %%
 %% Log audit events
