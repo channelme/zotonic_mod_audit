@@ -26,7 +26,9 @@
 
     observe_audit_log/2,
 
-    observe_search_query/2
+    observe_search_query/2,
+
+    observe_tick_1h/2
 ]).
 
 -include_lib("zotonic.hrl").
@@ -52,6 +54,9 @@ observe_search_query(#search_query{search={audit, Args}}, Context) ->
 
 observe_search_query(#search_query{}, _Context) ->
     undefined.
+
+observe_tick_1h(tick_1h, Context) ->
+    m_audit:periodic_cleanup(Context).
 
 audit_unique_logons(Args, _Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
