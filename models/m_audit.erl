@@ -136,7 +136,7 @@ user_agent_id(UserAgent, Context) ->
 
 % Remove entries older than 2 years.
 periodic_cleanup(Context) ->
-    z_db:q("delete from audit where id in (select id from audit where created < now() - interval '2 years' limit 10000)", Context).
+    z_db:q("delete from audit where id in (select id from audit where created < now() - interval '2 years' limit 10000)", Context, 300000).
 
 
 manage_schema(install, Context) ->
