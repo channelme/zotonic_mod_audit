@@ -143,10 +143,13 @@ periodic_cleanup(Context) ->
 % Update all records in the audit table
 update_audit_table(Context) ->
     io:fwrite(standard_error, "Updating audit table", []),
+    update_audit_table1(Context).
+
+update_audit_table1(Context) ->
     case props_json_update(Context) of
         {ok, N} when N > 0 ->
             io:fwrite(standard_error, ".", []),
-            update_audit_table(Context);
+            update_audit_table1(Context);
         {ok, 0} ->
             io:fwrite(standard_error, ".~n", []),
             done
