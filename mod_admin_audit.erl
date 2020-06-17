@@ -8,7 +8,7 @@
 -mod_title("Admin audit functionality").
 -mod_description("Support audit log of important actions.").
 -mod_prio(1).
--mod_schema(3).
+-mod_schema(4).
 -mod_depends([admin, menu]).
 -mod_provides([audit]).
 
@@ -239,6 +239,4 @@ group_period_at_tz(week, TZ) when is_list(TZ) ->
      {"iso_week", "(extract(isoyear from (created at time zone '" ++ TZ ++ "'))::int, extract(week from (created at time zone '" ++ TZ ++ "'))::int) as iso_week"} ;
 group_period_at_tz(month, TZ) when is_list(TZ) ->
     {"iso_month", "(extract(year from (created at time zone '" ++ TZ ++ "'))::int, extract(month from (created at time zone '" ++ TZ ++ "'))::int) as iso_month"}.
-
-
 

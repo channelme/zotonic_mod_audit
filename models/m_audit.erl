@@ -24,8 +24,7 @@
 
     periodic_cleanup/1,
 
-    props_json_update/1,
-    audit_record_to_prop_json/2
+    update_audit_table/1
 ]).
 
 -include_lib("zotonic.hrl").
@@ -140,7 +139,18 @@ user_agent_id(UserAgent, Context) ->
 periodic_cleanup(Context) ->
     z_db:q("delete from audit where id in (select id from audit where created < now() - interval '2 years' limit 10000)", Context, 300000).
 
-%% [TODO]Needs a function which can spawn the update procedure, so it can be initiaded from a postback
+
+% Update all records in the audit table
+update_audit_table(Context) ->
+    io:fwrite(standard_error, "Updating audit table", []),
+    case props_json_update(Context) of
+        {ok, N} when N > 0 ->
+            io:fwrite(standard_error, ".", []),
+            update_audit_table(Context);
+        {ok, 0} ->
+            io:fwrite(standard_error, ".~n", []),
+            done
+    end.
 
 % Move the stored props of erlang term props to json term props.
 props_json_update(Context) ->
