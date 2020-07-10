@@ -20,7 +20,11 @@
     is_a/3,
     get/2,
     get_visible/2,
-    get_raw/2
+    get_raw/2,
+
+    periodic_cleanup/1,
+
+    update_audit_table/1
 ]).
 
 -include_lib("zotonic.hrl").
@@ -131,6 +135,44 @@ user_agent_id(UserAgent, Context) ->
     Transaction = fun() -> z_db:transaction(F, Context) end,
     z_depcache:memo(Transaction, {user_agent_id, BUA}, ?MAXAGE_UA_STRING, Context).
 
+% Remove entries older than 2 years.
+periodic_cleanup(Context) ->
+    z_db:q("delete from audit where id in (select id from audit where created < now() - interval '2 years' limit 10000)", Context, 300000).
+
+
+% Update all records in the audit table
+update_audit_table(Context) ->
+    io:fwrite(standard_error, "Updating audit table", []),
+    update_audit_table1(Context).
+
+update_audit_table1(Context) ->
+    case props_json_update(Context) of
+        {ok, N} when N > 0 ->
+            io:fwrite(standard_error, ".", []),
+            update_audit_table1(Context);
+        {ok, 0} ->
+            io:fwrite(standard_error, ".~n", []),
+            done
+    end.
+
+% Move the stored props of erlang term props to json term props.
+props_json_update(Context) ->
+    F = fun(Ctx) ->
+                L = [ok = audit_record_to_prop_json(Id, Ctx) || {Id} <- z_db:q("select id from audit where props is not null and props_json is null limit 100", Ctx)],
+                {ok, length(L)}
+        end,
+    {ok, _} = z_db:transaction(F, Context).
+
+
+audit_record_to_prop_json(Id, Context) ->
+    % Place the update in a transaction to make sure we are not loosing data.
+    F = fun(Ctx) ->
+                {ok, Props} = z_db:select(audit, Id, Ctx),
+                {ok, _} = z_db:update(audit, Id, Props, Ctx),
+                ok
+        end,
+    ok = z_db:transaction(F, Context).
+    
 
 manage_schema(install, Context) ->
     ok = z_db:create_table(user_agent, [
@@ -146,6 +188,7 @@ manage_schema(install, Context) ->
         #column_def{name=id, type="serial", is_nullable=false, primary_key=true},
         #column_def{name=category_id, type="integer", is_nullable=false},
         #column_def{name=props, type="bytea", is_nullable=true}, 
+        #column_def{name=props_json, type="jsonb", is_nullable=true}, 
         #column_def{name=user_id, type="integer", is_nullable=true},
         #column_def{name=content_group_id, type="integer", is_nullable=false},
         #column_def{name=ua_id, type="integer", is_nullable=true},
@@ -168,5 +211,9 @@ manage_schema({upgrade, 2}, Context) ->
     ok;
 manage_schema({upgrade, 3}, _Context) ->
     %% Schema doesn't change, but the data model did.
+    ok;
+
+manage_schema({upgrade, 4}, Context) ->
+    {ok, _, _} = z_db:equery("ALTER TABLE audit ADD COLUMN props_json jsonb;", Context),
     ok.
 

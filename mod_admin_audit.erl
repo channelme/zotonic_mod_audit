@@ -8,7 +8,7 @@
 -mod_title("Admin audit functionality").
 -mod_description("Support audit log of important actions.").
 -mod_prio(1).
--mod_schema(3).
+-mod_schema(4).
 -mod_depends([admin, menu]).
 -mod_provides([audit]).
 
@@ -26,7 +26,9 @@
 
     observe_audit_log/2,
 
-    observe_search_query/2
+    observe_search_query/2,
+
+    observe_tick_1h/2
 ]).
 
 -include_lib("zotonic.hrl").
@@ -52,6 +54,9 @@ observe_search_query(#search_query{search={audit, Args}}, Context) ->
 
 observe_search_query(#search_query{}, _Context) ->
     undefined.
+
+observe_tick_1h(tick_1h, Context) ->
+    m_audit:periodic_cleanup(Context).
 
 audit_unique_logons(Args, _Context) ->
     {date_start, DateStart} = proplists:lookup(date_start, Args),
@@ -234,6 +239,4 @@ group_period_at_tz(week, TZ) when is_list(TZ) ->
      {"iso_week", "(extract(isoyear from (created at time zone '" ++ TZ ++ "'))::int, extract(week from (created at time zone '" ++ TZ ++ "'))::int) as iso_week"} ;
 group_period_at_tz(month, TZ) when is_list(TZ) ->
     {"iso_month", "(extract(year from (created at time zone '" ++ TZ ++ "'))::int, extract(month from (created at time zone '" ++ TZ ++ "'))::int) as iso_month"}.
-
-
 
