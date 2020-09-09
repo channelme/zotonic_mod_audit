@@ -100,7 +100,7 @@ audit_query(Select, Args, Context) ->
                 args=QueryArgs
             };
         GroupBy ->
-            {PeriodName, GroupPeriod} = group_period(GroupBy, Context),
+            {PeriodName, GroupPeriod} = group_parameters(GroupBy, Context),
             #search_sql{select=Select ++ ", " ++ GroupPeriod,
                 from="audit audit",
                 group_by=PeriodName,
@@ -227,10 +227,29 @@ datamodel() ->
 %% Helpers
 %%
 
-group_period(user, _Context)  ->
+group_parameters(user, _Context)  ->
     {"user_id", "user_id"};
-group_period(Period, Context)  ->
-    group_period_at_tz(Period, z_convert:to_list(z_context:tz(Context))).
+group_parameters(Period, Context) when Period =:= day orelse Period =:= week orelse Period =:= month  ->
+    group_period_at_tz(Period, z_convert:to_list(z_context:tz(Context)));
+group_parameters(GroupOn, _Context) when is_atom(GroupOn)  ->
+    case is_column_name(GroupOn) of
+        true ->
+            S = z_convert:to_list(GroupOn),
+            {S, S};
+        false ->
+            %% This is not one of the column names. Assume it is a property in the
+            %% props_json field.
+            GroupOnName = z_convert:to_list(GroupOn),
+            S = "props_json->'" ++ GroupOnName ++ "'",
+            {S, S ++ " as " ++ GroupOnName}
+    end.
+
+is_column_name(user_id) -> true;
+is_column_name(category_id) -> true;
+is_column_name(content_group_id) -> true;
+is_column_name(ua_id) -> true;
+is_column_name(ip_address) -> true;
+is_column_name(_) -> false.
 
 
 group_period_at_tz(day, TZ) when is_list(TZ) ->
