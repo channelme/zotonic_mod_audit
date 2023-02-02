@@ -15,5 +15,5 @@ process_get(_ReqData, Context) ->
         <<>> -> {error, missing_arg, "id"};
         Id ->
             Data = m_audit:get_visible(z_convert:to_integer(Id), Context),
-            z_convert:to_json(Data)
+            jsx:encode(Data)
     end.
