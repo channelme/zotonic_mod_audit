@@ -1,0 +1,10 @@
+{application, zotonic_mod_audit, [
+    {description, ""},
+    {vsn, "git"},
+    {registered, []},
+    {applications, [kernel, stdlib, zotonic_core]},
+    {env, []},
+    {modules, []},
+    {maintainers, []}
+]}.
+
